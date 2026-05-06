@@ -95,6 +95,7 @@ Both visualisation methods produce five plots:
 3. **Evaporator heat transfer rate** (kW) over time
 4. **Condenser heat transfer rate** (kW) over time
 5. **Mass flow** in the condenser/evaporator (kg/s) over time
+
 A `design_case/` folder is also saved after the design solve, used as the reference point for all off-design calculations.
  
 ---
