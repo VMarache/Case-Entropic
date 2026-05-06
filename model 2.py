@@ -234,7 +234,7 @@ m_src=df_src['flow[kg/s]']
 T_snk_in=df_snk['T_in[degC']
 T_snk_out=df_snk['T_out[degC]']
 
-# transforming tim estamps in data to datetime
+# transforming time estamps in data to datetime
 df_src['end measurement']=pd.to_datetime(df_src['end measurement'])
 
 # Running the model
