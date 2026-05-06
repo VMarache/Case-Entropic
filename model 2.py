@@ -62,7 +62,7 @@ class HeatPumpModel:
         eta_s: float
            compressor efficiency
         ref_fluid:str
-            refrigerant fluid
+            working fluid
         ext_fluid:str
             fluid in the heat source and sink
         T_src_in: float
@@ -86,7 +86,7 @@ class HeatPumpModel:
         self.co.set_attr(pr1=1, pr2=1,design=['pr1','pr2'],offdesign=['zeta1', 'zeta2', 'kA_char1', 'kA_char2'])
         self.va.set_attr(design=['pr'],offdesign=['zeta'])
 
-        # Conditions for the refrigerant flow
+        # Conditions for the working fluid flow
         self.c1.set_attr(fluid={ref_fluid:1}, T=T_src_out-dt, x=1)
         self.c3.set_attr(T=T_snk_out+dt,x=0)       
 
@@ -139,14 +139,14 @@ class HeatPumpModel:
         self.c_snk_in.set_attr(T=T_snk_in_n,m=None)
         self.c_snk_out.set_attr(T=T_snk_out_n)
 
-        # Resetting conditions for refrigerant flow
+        # Resetting conditions for working fluid flow
         self.c1.set_attr(T=None) 
         self.c3.set_attr(T=T_snk_out_n+10)
         
         self.nw.solve('offdesign', design_path='design_case')
 
-    def visualize(self,time,T_src_in,T_src_out,m_src,T_snk_in,T_snk_out):
-        """" Function to visualize the solved off design with different conditions for heat source and sink
+    def visualize_T_src(self,time,T_src_in,T_src_out,m_src,T_snk_in,T_snk_out):
+        """" Function to solve off design with different conditions for heat source and sink and visualize the results
         ------------
         Parameters
         ------------
@@ -173,6 +173,7 @@ class HeatPumpModel:
 
         # Looping solving for the different conditions and storing results
         for i in range(len(T_src_in)):
+            # Gives 0 as results for when the heat source has lower in temp than out
             if T_src_in[i]<=T_src_out[i]:
                 COPs_T.append(0)
                 P_comp_T.append(0)
@@ -222,6 +223,113 @@ class HeatPumpModel:
         plt.ylabel('Flow (kg/s)')
         plt.title('Mass flow in the condenser')
         plt.show()
+    
+    def solve_offdesign_Q_snk(self,Q_snk_n,T_snk_in_n,T_snk_out_n,Cp_snk):
+        """" Function to solve off design based on different Heat load for the sink
+        ------------
+        Parameters
+        ------------
+        Q_snk_n: Float
+            New Heat load for the sink
+        T_snk_in_n: Float
+            New temperature at the inflow of the heat sink
+        T_snk_out_n: Float
+            New temperature at the outflow of the heat sink
+        Cp_snk:float
+            Heat capacity for fluid in the heat sink
+        """
+        # Calculating mass flow in the heat sink
+        m_snk=Q_snk_n/(Cp_snk*(T_snk_out_n-T_snk_in_n))
+
+        # Setting new conditions for heat source
+        self.c_src_in.set_attr(m=None)
+
+        # Setting new conditions for heat sink
+        self.c_snk_in.set_attr(T=T_snk_in_n,m=m_snk)
+        self.c_snk_out.set_attr(T=T_snk_out_n)
+
+        # Resetting conditions for working fluid flow
+        self.c1.set_attr(T=None) 
+        self.c3.set_attr(T=T_snk_out_n+10)
+        
+        self.nw.solve('offdesign', design_path='design_case')
+
+    def visualize_Q_snk(self,time,Q_snk,T_snk_in,T_snk_out,Cp_snk):
+        """" Function to solve off design with different conditions for heat source and sink and visualize the results
+        ------------
+        Parameters
+        ------------
+        time: pandas.Series
+            Serie of datetime for the different conditions
+        Q_snk_n: Float
+            serie of new heat loads for the sink
+        T_snk_in: pandas.Series
+            Serie of new temperatures at the inflow of the heat sink
+        T_snk_out: pandas.Series
+            Serie of new temperatures at the outflow of the heat sink
+        Cp_snk:float
+            Heat capacity for fluid in the heat sink
+        """
+
+        # Setting empty list for values
+        COPs_T=[]
+        P_comp_T=[]
+        kA_ev_T=[]
+        kA_co_T=[]
+        mass_ev=[]
+
+        # Looping solving for the different conditions and storing results
+        for i in range(len(T_src_in)):
+            # Gives 0 as results for when the heat source has lower in temp than out
+            if Q_snk[i]<=500: # Below 400 the off design doesn't solve correctly
+                COPs_T.append(0)
+                P_comp_T.append(0)
+                kA_ev_T.append(0)
+                kA_co_T.append(0)
+                mass_ev.append(0)
+            else:
+                self.solve_offdesign_Q_snk(Q_snk[i],T_snk_in[i],T_snk_out[i],Cp_snk)
+                COPs_T.append(abs(self.co.Q.val_SI)/model.cp.P.val_SI)
+                P_comp_T.append(self.cp.P.val)
+                kA_ev_T.append(abs(self.ev.Q.val_SI)/1000)
+                kA_co_T.append(abs(self.co.Q.val_SI)/1000)
+                mass_ev.append(self.c_snk_in.m.val)
+       
+        # Plotting the results       
+        plt.figure(1)
+        plt.plot(time,COPs_T)
+        plt.xlabel('Time')
+        plt.ylabel('COP')
+        plt.title('COP values ')
+        plt.show()
+
+        plt.figure(2)
+        plt.plot(time,P_comp_T)
+        plt.xlabel('Time')
+        plt.ylabel('P (kW)')
+        plt.title('Power consumption of the compressor ')
+        plt.show()
+
+        plt.figure(3)
+        plt.plot(time,kA_ev_T)
+        plt.xlabel('Time')
+        plt.ylabel('kA')
+        plt.title('Heat transfer rates in the evaporator ')
+        plt.show()
+
+        plt.figure(4)
+        plt.plot(time,kA_co_T)
+        plt.xlabel('Time')
+        plt.ylabel('kA')
+        plt.title('Heat transfer rates in the condenser ')
+        plt.show()
+
+        plt.figure(5)
+        plt.plot(time,mass_ev)
+        plt.xlabel('Time')
+        plt.ylabel('Flow (kg/s)')
+        plt.title('Mass flow in the evaporator')
+        plt.show()
 
 
 # Extracting the data from excel
@@ -233,15 +341,15 @@ T_src_out=df_src['T_out[degC]']
 m_src=df_src['flow[kg/s]']
 T_snk_in=df_snk['T_in[degC']
 T_snk_out=df_snk['T_out[degC]']
-
-# transforming tim estamps in data to datetime
+Q_snk=df_snk['Energy[kWh]']
+# transforming time stamps in data to datetime
 df_src['end measurement']=pd.to_datetime(df_src['end measurement'])
 
 # Running the model
 model=HeatPumpModel()
 model.solve_design(0.85,'NH3','water',40,10,40,90,10,2,2)
-model.visualize(df_src['end measurement'],T_src_in,T_src_out,m_src,T_snk_in,T_snk_out)
-
+#model.visualize_T_src(df_src['end measurement'],T_src_in,T_src_out,m_src,T_snk_in,T_snk_out)
+model.visualize_Q_snk(df_src['end measurement'],Q_snk,T_snk_in,T_snk_out,4.18)
 
 
 
