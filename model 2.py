@@ -348,7 +348,7 @@ df_src['end measurement']=pd.to_datetime(df_src['end measurement'])
 # Running the model
 model=HeatPumpModel()
 model.solve_design(0.85,'NH3','water',40,10,40,90,10,2,2)
-#model.visualize_T_src(df_src['end measurement'],T_src_in,T_src_out,m_src,T_snk_in,T_snk_out)
+model.visualize_T_src(df_src['end measurement'],T_src_in,T_src_out,m_src,T_snk_in,T_snk_out)
 model.visualize_Q_snk(df_src['end measurement'],Q_snk,T_snk_in,T_snk_out,4.18)
 
 
